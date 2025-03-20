@@ -1,0 +1,21 @@
+---
+- name: Install k9s on Ubuntu
+  hosts: all
+  become: yes
+  tasks:
+    - name: Ensure snapd is installed
+      apt:
+        name: snapd
+        state: present
+        update_cache: yes
+
+    - name: Ensure snapd service is running and enabled
+      service:
+        name: snapd
+        state: started
+        enabled: yes
+
+    - name: Install k9s via Snap
+      snap:
+        name: k9s
+        state: present
