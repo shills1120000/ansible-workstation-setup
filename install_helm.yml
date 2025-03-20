@@ -1,0 +1,31 @@
+---
+- name: Install Helm on WSL Ubuntu
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure apt-transport-https is installed
+      apt:
+        name: apt-transport-https
+        state: present
+        update_cache: yes
+
+    - name: Add Helm GPG key
+      ansible.builtin.shell:
+        cmd: curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | tee /usr/share/keyrings/helm.gpg > /dev/null
+      args:
+        executable: /bin/bash
+
+    - name: Add Helm repository
+      ansible.builtin.shell:
+        cmd: echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
+      args:
+        executable: /bin/bash
+
+    - name: Update package index
+      apt:
+        update_cache: yes
+
+    - name: Install Helm and keep upto date
+      apt:
+        name: helm
+        state: present

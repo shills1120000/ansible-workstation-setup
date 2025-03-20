@@ -1,0 +1,50 @@
+---
+- name: Install Terraform on WSL Ubuntu
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Update the system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required dependencies
+      apt:
+        name:
+          - gnupg
+          - software-properties-common
+          - curl
+        state: present
+
+    - name: Add the HashiCorp GPG key
+      shell: curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+      args:
+        executable: /bin/bash
+      become: true    
+      
+
+    - name: Add the HashiCorp APT repository
+      copy:
+        dest: /etc/apt/sources.list.d/hashicorp.list
+        content: |
+          deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_lsb.codename }} main
+
+    - name: Update the package list
+      apt:
+        update_cache: yes
+
+    - name: Install Terraform
+      apt:
+        name: terraform
+        state: present
+
+    - name: Verify Terraform installation
+      command: terraform version
+      register: terraform_output
+      ignore_errors: yes
+
+    - name: Display verification result
+      debug:
+        msg: >
+          Terraform is installed and working properly. 
+          Version: {{ terraform_output.stdout.split('\n')[0] }}

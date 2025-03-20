@@ -1,0 +1,32 @@
+---
+- name: Configure GCP aliases on local machine
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Create the GCP aliases file
+      copy:
+        dest: "{{ ansible_env.HOME }}/.gcp_aliases"
+        content: |
+          # ~/.gcp_aliases
+
+          # Auth commands
+          alias gcauth='gcloud auth login'
+          alias gcauthapp='gcloud auth application-default login'
+
+          # Project commands
+          alias gcproject='gcloud config get-value project'
+          alias gcprojects='gcloud projects list'
+        mode: '0644'
+
+    - name: Ensure ~/.bashrc references ~/.gcp_aliases
+      lineinfile:
+        path: "{{ ansible_env.HOME }}/.bashrc"
+        regexp: '^if\s+\[ -f ~\/\.gcp_aliases \]'
+        line: 'if [ -f ~/.gcp_aliases ]; then source ~/.gcp_aliases; fi'
+        state: present
+
+    - name: Inform the user to reload their shell
+      debug:
+        msg: "GCP aliases have been installed. Please run 'source ~/.bashrc' or open a new shell to use them."
