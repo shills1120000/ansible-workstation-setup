@@ -1,0 +1,35 @@
+---
+- name: Install AWS CLI v2 on Ubuntu/Debian
+  hosts: all
+  become: yes
+  tasks:
+    - name: Ensure unzip and curl are installed
+      apt:
+        name:
+          - unzip
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Download AWS CLI v2 installer
+      get_url:
+        url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+        dest: /tmp/awscliv2.zip
+
+    - name: Unzip AWS CLI v2 installer
+      unarchive:
+        src: /tmp/awscliv2.zip
+        dest: /tmp
+        remote_src: yes
+
+    - name: Run AWS CLI install script
+      command: /tmp/aws/install
+
+    - name: Check AWS CLI version
+      command: aws --version
+      register: aws_cli_version
+      changed_when: false
+
+    - name: Show installed AWS CLI version
+      debug:
+        msg: "{{ aws_cli_version.stdout }}"
