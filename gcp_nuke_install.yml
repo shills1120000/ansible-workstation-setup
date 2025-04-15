@@ -1,0 +1,72 @@
+---
+- name: Update gcp-nuke to latest version from source with version injection attempt
+  hosts: localhost
+  become: yes
+  vars:
+    gcp_nuke_version: "v1.7.20"
+    gcp_nuke_repo: "https://github.com/ekristen/gcp-nuke.git"
+    gcp_nuke_path: "/usr/local/bin/gcp-nuke"
+    golang_package: golang-go
+    build_dir: "/tmp/gcp-nuke"
+
+  tasks:
+
+    - name: Ensure Go is installed
+      apt:
+        name: "{{ golang_package }}"
+        state: present
+        update_cache: yes
+
+    - name: Remove existing gcp-nuke binary
+      file:
+        path: "{{ gcp_nuke_path }}"
+        state: absent
+
+    - name: Remove old build directory if it exists
+      file:
+        path: "{{ build_dir }}"
+        state: absent
+
+    - name: Clone gcp-nuke repo
+      git:
+        repo: "{{ gcp_nuke_repo }}"
+        dest: "{{ build_dir }}"
+        version: "{{ gcp_nuke_version }}"
+
+    - name: Mark git directory as safe to avoid ownership warnings
+      shell: |
+        git config --global --add safe.directory {{ build_dir }}
+
+    - name: Build gcp-nuke (version still shows 1.0.0-dev — not injected)
+      shell: |
+        go build -o gcp-nuke
+      args:
+        chdir: "{{ build_dir }}"
+
+    - name: Move gcp-nuke binary to /usr/local/bin
+      copy:
+        src: "{{ build_dir }}/gcp-nuke"
+        dest: "{{ gcp_nuke_path }}"
+        mode: '0755'
+        remote_src: yes
+
+    - name: Check gcp-nuke version
+      command: "{{ gcp_nuke_path }} --version"
+      register: nuke_version_output
+      changed_when: false
+
+    - name: Print gcp-nuke CLI-reported version
+      debug:
+        var: nuke_version_output.stdout
+
+    - name: Get actual git tag from source
+      shell: |
+        git describe --tags
+      args:
+        chdir: "{{ build_dir }}"
+      register: gcp_nuke_git_tag
+      changed_when: false
+
+    - name: Print actual source version from git
+      debug:
+        var: gcp_nuke_git_tag.stdout
