@@ -1,0 +1,47 @@
+---
+- name: Install K9s on Ubuntu
+  hosts: all
+  become: yes
+  tasks:
+
+    - name: Ensure curl is installed
+      apt:
+        name: curl
+        state: present
+        update_cache: yes
+
+    - name: Create temporary directory for k9s
+      tempfile:
+        state: directory
+        suffix: k9s
+      register: temp_dir
+
+    - name: Download latest K9s tar.gz
+      get_url:
+        url: https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_amd64.tar.gz
+        dest: "{{ temp_dir.path }}/k9s.tar.gz"
+        mode: '0644'
+
+    - name: Extract K9s binary
+      unarchive:
+        src: "{{ temp_dir.path }}/k9s.tar.gz"
+        dest: "{{ temp_dir.path }}"
+        remote_src: yes
+
+    - name: Move K9s binary to /usr/local/bin
+      command: mv {{ temp_dir.path }}/k9s /usr/local/bin/k9s
+
+    - name: Ensure k9s binary is executable
+      file:
+        path: /usr/local/bin/k9s
+        mode: '0755'
+        state: file
+
+    - name: Verify K9s installation
+      command: k9s version
+      register: k9s_version
+      changed_when: false
+
+    - name: Show installed K9s version
+      debug:
+        msg: "{{ k9s_version.stdout }}"

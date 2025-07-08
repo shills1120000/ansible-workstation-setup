@@ -1,0 +1,79 @@
+---
+- name: Install Google Chrome and ChromeDriver for Selenium
+  hosts: localhost
+  become: yes
+  tasks:
+
+    - name: Install dependencies
+      apt:
+    - name: Install dependencies
+      apt:
+        name:
+          - wget
+          - unzip
+          - gnupg
+          - libnss3
+          - libxss1
+          - libappindicator3-1
+          - libindicator7
+          - libatk-bridge2.0-0
+          - libgtk-3-0
+          - libgbm1
+          - libasound2t64  # <--- replaced this
+        state: present
+        update_cache: yes
+
+    - name: Add Google Chrome GPG key
+      apt_key:
+        url: https://dl.google.com/linux/linux_signing_key.pub
+        state: present
+
+    - name: Add Google Chrome repository
+      apt_repository:
+        repo: "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main"
+        state: present
+        filename: "google-chrome"
+
+    - name: Install Google Chrome
+      apt:
+        name: google-chrome-stable
+        state: present
+        update_cache: yes
+
+    - name: Get latest Chrome version
+      shell: |
+        google-chrome --version | grep -oP "\d+\.\d+\.\d+\.\d+"
+      register: chrome_version
+      changed_when: false
+
+    - name: Set ChromeDriver download URL
+      set_fact:
+        chromedriver_url: "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/{{ chrome_version.stdout }}/linux64/chromedriver-linux64.zip"
+
+    - name: Download ChromeDriver
+      get_url:
+        url: "{{ chromedriver_url }}"
+        dest: /tmp/chromedriver.zip
+        mode: '0644'
+
+    - name: Unzip ChromeDriver
+      unarchive:
+        src: /tmp/chromedriver.zip
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Move ChromeDriver to /usr/local/bin
+      copy:
+        src: /tmp/chromedriver-linux64/chromedriver
+        dest: /usr/local/bin/chromedriver
+        mode: '0755'
+        remote_src: yes
+
+    - name: Verify ChromeDriver version
+      command: chromedriver --version
+      register: chromedriver_version
+      changed_when: false
+
+    - name: Show ChromeDriver version
+      debug:
+        msg: "Installed ChromeDriver: {{ chromedriver_version.stdout }}"
