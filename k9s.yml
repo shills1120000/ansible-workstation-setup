@@ -1,21 +1,47 @@
 ---
-- name: Install k9s on Ubuntu
+- name: Install latest k9s on Ubuntu
   hosts: all
   become: yes
+  vars:
+    k9s_download_dir: /tmp
+    k9s_install_path: /usr/local/bin/k9s
+    k9s_arch: amd64  # change to arm64 if using Apple Silicon or Raspberry Pi
   tasks:
-    - name: Ensure snapd is installed
-      apt:
-        name: snapd
-        state: present
-        update_cache: yes
+    - name: Get the latest k9s release tag from GitHub
+      uri:
+        url: https://api.github.com/repos/derailed/k9s/releases/latest
+        return_content: yes
+      register: k9s_release
 
-    - name: Ensure snapd service is running and enabled
-      service:
-        name: snapd
-        state: started
-        enabled: yes
+    - name: Set k9s version fact
+      set_fact:
+        k9s_version: "{{ k9s_release.json.tag_name }}"
 
-    - name: Install k9s via Snap
-      snap:
-        name: k9s
-        state: present
+    - name: Download latest k9s tarball
+      get_url:
+        url: "https://github.com/derailed/k9s/releases/download/{{ k9s_version }}/k9s_Linux_{{ k9s_arch }}.tar.gz"
+        dest: "{{ k9s_download_dir }}/k9s.tar.gz"
+        mode: '0644'
+
+    - name: Extract k9s binary
+      unarchive:
+        src: "{{ k9s_download_dir }}/k9s.tar.gz"
+        dest: "{{ k9s_download_dir }}/"
+        remote_src: yes
+
+    - name: Move k9s binary to install path
+      copy:
+        src: "{{ k9s_download_dir }}/k9s"
+        dest: "{{ k9s_install_path }}"
+        mode: '0755'
+        remote_src: yes
+
+    - name: Verify k9s installation
+      command: k9s version
+      register: k9s_ver_output
+      changed_when: false
+
+    - name: Show installed k9s version
+      debug:
+        msg: "{{ k9s_ver_output.stdout }}"
+

@@ -1,0 +1,70 @@
+---
+- name: Install Node.js and Google Gemini CLI
+  hosts: all
+  become: yes
+  tasks:
+
+    - name: Remove any existing Node.js and npm
+      ansible.builtin.apt:
+        name:
+          - nodejs
+          - npm
+        state: absent
+        purge: yes
+        autoremove: yes
+      ignore_errors: yes
+
+    - name: Add NodeSource repository for Node.js 23.x
+      ansible.builtin.shell: |
+        curl -fsSL https://deb.nodesource.com/setup_23.x | bash -
+      args:
+        executable: /bin/bash
+      register: node_repo
+      changed_when: "'added' in node_repo.stdout or 'install' in node_repo.stdout"
+
+    - name: Clean and unlock apt before updating
+      ansible.builtin.shell: |
+        rm -f /var/lib/apt/lists/lock
+        rm -f /var/lib/dpkg/lock*
+        rm -f /var/cache/apt/archives/lock
+        dpkg --configure -a || true
+        apt-get clean
+      become: yes
+
+    - name: Ensure apt cache is up to date (after NodeSource setup)
+      ansible.builtin.shell: apt-get update -y
+      register: apt_update
+      retries: 3
+      delay: 10
+      until: apt_update.rc == 0
+
+    - name: Install Node.js (includes npm)
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+
+    - name: Verify Node.js and npm versions
+      ansible.builtin.shell: |
+        echo "Node: $(node -v)" && echo "NPM: $(npm -v)"
+      register: node_versions
+      changed_when: false
+
+    - name: Show installed Node.js and npm versions
+      ansible.builtin.debug:
+        msg: "{{ node_versions.stdout_lines }}"
+
+    - name: Install Google Gemini CLI globally
+      community.general.npm:
+        name: "@google/gemini-cli"
+        global: yes
+        state: present
+
+    - name: Verify Gemini installation
+      ansible.builtin.shell: gemini --version
+      register: gemini_version
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Show Gemini version
+      ansible.builtin.debug:
+        msg: "{{ gemini_version.stdout | default('Gemini CLI not found or failed to run') }}"
